@@ -1102,9 +1102,9 @@
                     <div class="settings-group">
                         <div class="setting-label">
                             <span>Blend Radius</span>
-                            <span class="setting-value" id="blend-value">15px</span>
+                            <span class="setting-value" id="blend-value">30px</span>
                         </div>
-                        <input type="range" id="blend-radius" min="5" max="50" value="15" oninput="updateBlendValue()">
+                        <input type="range" id="blend-radius" min="10" max="100" value="30" oninput="updateBlendValue()">
                     </div>
                 </div>
 
@@ -1440,9 +1440,11 @@
             
             // Show recommendation on mobile
             if (isMobileDevice()) {
-                if (value > 30) {
-                    label = `${value} frames ⚠️ may be slow`;
-                } else if (value > 20) {
+                if (value > 35) {
+                    label = `${value} frames ⚠️ may crash`;
+                } else if (value > 25) {
+                    label = `${value} frames ⚠️ slow`;
+                } else if (value > 15) {
                     label = `${value} frames (OK)`;
                 }
             }
@@ -1465,8 +1467,9 @@
             }
 
             // Warn about high frame counts on mobile
-            if (isMobileDevice() && frameCount > 25) {
-                showToast(`Extracting ${frameCount} frames on mobile - this may take a while...`, 'success');
+            const onMobile = isMobileDevice();
+            if (onMobile && frameCount > 20) {
+                showToast(`Extracting ${frameCount} frames on mobile - please wait...`, 'success');
             } else {
                 showToast(`Extracting ${frameCount} frames...`, 'success');
             }
@@ -1476,11 +1479,12 @@
             progressContainer.classList.add('visible');
             images = [];
 
-            // Calculate max resolution for mobile (to save memory)
-            const maxDimension = isMobileDevice() ? 1920 : Infinity;
+            // Calculate max resolution for mobile (aggressive reduction to save memory)
+            // 1280px is a good balance between quality and memory on mobile
+            const maxDimension = onMobile ? 1280 : 2560;
             
-            // Process in batches to prevent memory overload
-            const batchSize = isMobileDevice() ? 5 : 10;
+            // Process in small batches on mobile to prevent memory overload
+            const batchSize = onMobile ? 3 : 10;
             
             for (let i = 1; i <= frameCount; i++) {
                 const time = interval * i;
@@ -1488,9 +1492,10 @@
                 images.push(frame);
                 updateProgress('Extracting frames', (i / frameCount) * 100);
                 
-                // Allow garbage collection between batches on mobile
-                if (isMobileDevice() && i % batchSize === 0) {
-                    await sleep(100); // Brief pause to let browser breathe
+                // Allow garbage collection between batches
+                if (i % batchSize === 0) {
+                    // Force a longer pause on mobile to let memory clear
+                    await sleep(onMobile ? 200 : 50);
                 }
             }
 
@@ -1630,12 +1635,16 @@
                     await sleep(0); // Allow UI updates
                 }
 
-                // Apply Gaussian blur to focus maps for smoother blending
-                updateProgress('Smoothing focus maps', 65);
-                const smoothedMaps = focusMaps.map(map => gaussianBlur(map, width, height, blendRadius));
+                // Apply double-pass Gaussian blur to focus maps for smoother blending
+                updateProgress('Smoothing focus maps', 60);
+                // First pass with full radius
+                let smoothedMaps = focusMaps.map(map => gaussianBlur(map, width, height, blendRadius));
+                // Second pass with half radius for extra smoothness (reduces banding)
+                updateProgress('Refining blend', 70);
+                smoothedMaps = smoothedMaps.map(map => gaussianBlur(map, width, height, Math.max(5, Math.floor(blendRadius / 2))));
 
                 // Blend images based on focus maps
-                updateProgress('Blending images', 75);
+                updateProgress('Blending images', 80);
                 const resultData = blendImages(imageDataArray, smoothedMaps, width, height);
 
                 // Put result on canvas
@@ -1810,15 +1819,30 @@
             const result = new ImageData(width, height);
             const resultData = result.data;
 
+            // Normalize focus maps to 0-1 range for better blending
+            const normalizedMaps = focusMaps.map(map => {
+                let max = 0;
+                for (let i = 0; i < map.length; i++) {
+                    if (map[i] > max) max = map[i];
+                }
+                const normalized = new Float32Array(map.length);
+                const scale = max > 0 ? 1 / max : 1;
+                for (let i = 0; i < map.length; i++) {
+                    normalized[i] = map[i] * scale;
+                }
+                return normalized;
+            });
+
             for (let i = 0; i < width * height; i++) {
                 // Calculate weighted blend based on focus values
                 let totalWeight = 0;
                 let r = 0, g = 0, b = 0;
                 
                 for (let j = 0; j < imageDataArray.length; j++) {
-                    const focus = focusMaps[j][i];
-                    // Use squared focus as weight for sharper selection
-                    const weight = focus * focus + 0.001; // Small epsilon to avoid division by zero
+                    const focus = normalizedMaps[j][i];
+                    // Use softmax-like weighting for smoother transitions
+                    // Higher exponent = sharper selection, lower = smoother blend
+                    const weight = Math.pow(focus + 0.01, 1.5); // Gentler than squared
                     totalWeight += weight;
                     
                     const srcIdx = i * 4;
