@@ -1318,13 +1318,19 @@
             
             // Update mode indicator
             inputMode.classList.add('active');
-            inputModeText.innerHTML = `<strong>🎬 Video Mode:</strong> ${file.name}`;
+            inputModeText.innerHTML = `<strong>🎬 Video Mode:</strong> ${file.name} (loading...)`;
             
             // Hide image grid, show video section
             emptyState.style.display = 'none';
             imageGrid.style.display = 'none';
             
-            showToast('Video loaded! Use the slider to set frame count, then extract frames.', 'success');
+            // Wait for metadata to load before allowing extraction
+            videoPreview.onloadedmetadata = () => {
+                const duration = videoPreview.duration.toFixed(1);
+                inputModeText.innerHTML = `<strong>🎬 Video Mode:</strong> ${file.name} (${duration}s)`;
+                showToast('Video ready! Set frame count and extract.', 'success');
+            };
+            
             updateStackButton();
         }
 
@@ -1453,16 +1459,17 @@
         }
 
         async function extractFrames() {
-            if (!videoPreview.src || videoPreview.readyState < 2) {
-                showToast('Please wait for video to load', 'error');
+            if (!videoPreview.src) {
+                showToast('Please upload a video first', 'error');
                 return;
             }
 
             const frameCount = parseInt(document.getElementById('frame-count').value);
             const duration = videoPreview.duration;
             
-            if (!duration || duration === 0) {
-                showToast('Could not read video duration', 'error');
+            // Check if metadata is loaded (duration available)
+            if (!duration || duration === 0 || isNaN(duration)) {
+                showToast('Video still loading - try again in a moment', 'error');
                 return;
             }
 
