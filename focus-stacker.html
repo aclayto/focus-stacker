@@ -1106,6 +1106,14 @@
                         </div>
                         <input type="range" id="blend-radius" min="10" max="100" value="30" oninput="updateBlendValue()">
                     </div>
+
+                    <div class="settings-group" style="margin-top: 1rem;">
+                        <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer;">
+                            <input type="checkbox" id="use-source-timestamp" checked style="width: 18px; height: 18px; accent-color: var(--accent-cyan);">
+                            <span style="font-size: 0.9rem; color: var(--text-secondary);">Use source file timestamp (+5s)</span>
+                        </label>
+                        <p id="timestamp-preview" style="font-size: 0.75rem; color: var(--text-dim); margin-top: 0.5rem; font-family: 'JetBrains Mono', monospace;"></p>
+                    </div>
                 </div>
 
                 <div class="action-bar">
@@ -1197,6 +1205,7 @@
         let isComparing = false;
         let currentInputMode = null; // 'images' or 'video'
         let loadedVideo = null;
+        let latestSourceTimestamp = null; // Track latest timestamp from source files
 
         // DOM Elements
         const uploadZone = document.getElementById('upload-zone');
@@ -1312,6 +1321,11 @@
             currentInputMode = 'video';
             loadedVideo = file;
             
+            // Track video timestamp
+            if (file.lastModified) {
+                latestSourceTimestamp = file.lastModified;
+            }
+            
             const url = URL.createObjectURL(file);
             videoPreview.src = url;
             videoSection.classList.add('visible');
@@ -1332,6 +1346,7 @@
             };
             
             updateStackButton();
+            updateTimestampPreview();
         }
 
         // Load images
@@ -1347,6 +1362,13 @@
                     img: img,
                     dataUrl: img.src
                 });
+                
+                // Track latest timestamp from source files
+                if (file.lastModified) {
+                    if (!latestSourceTimestamp || file.lastModified > latestSourceTimestamp) {
+                        latestSourceTimestamp = file.lastModified;
+                    }
+                }
             }
 
             // Update mode indicator
@@ -1358,6 +1380,7 @@
 
             updateImageGrid();
             updateStackButton();
+            updateTimestampPreview();
         }
 
         function loadImage(file) {
@@ -1406,9 +1429,11 @@
         function clearAll() {
             images = [];
             loadedVideo = null;
+            latestSourceTimestamp = null;
             resetInputMode();
             updateImageGrid();
             updateStackButton();
+            updateTimestampPreview();
             
             // Reset video
             videoPreview.src = '';
@@ -1980,6 +2005,7 @@
             const algorithm = document.getElementById('algorithm').value;
             const kernelSize = document.getElementById('kernel-size').value;
             const blendRadius = document.getElementById('blend-radius').value;
+            const useSourceTimestamp = document.getElementById('use-source-timestamp').checked;
             
             const algoAbbrev = {
                 'laplacian': 'Lap',
@@ -1987,8 +2013,30 @@
                 'variance': 'Var'
             }[algorithm] || algorithm;
             
-            const timestamp = new Date().toISOString().slice(0, 10);
+            let timestamp;
+            if (useSourceTimestamp && latestSourceTimestamp) {
+                // Add 5 seconds to latest source timestamp
+                const resultDate = new Date(latestSourceTimestamp + 5000);
+                // Format: YYYY-MM-DD_HHmmss
+                timestamp = resultDate.toISOString().slice(0, 10) + '_' + 
+                           resultDate.toTimeString().slice(0, 8).replace(/:/g, '');
+            } else {
+                timestamp = new Date().toISOString().slice(0, 10);
+            }
+            
             return `focus-stacked_${timestamp}_${algoAbbrev}_K${kernelSize}_BR${blendRadius}.png`;
+        }
+        
+        // Update timestamp preview when images are loaded
+        function updateTimestampPreview() {
+            const preview = document.getElementById('timestamp-preview');
+            if (latestSourceTimestamp) {
+                const sourceDate = new Date(latestSourceTimestamp);
+                const resultDate = new Date(latestSourceTimestamp + 5000);
+                preview.textContent = `Source: ${sourceDate.toLocaleString()} → Result: ${resultDate.toLocaleString()}`;
+            } else {
+                preview.textContent = 'No source timestamp available';
+            }
         }
 
         // Convert data URL to Blob
