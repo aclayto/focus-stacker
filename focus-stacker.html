@@ -1109,6 +1109,14 @@
 
                     <div class="settings-group" style="margin-top: 1rem;">
                         <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer;">
+                            <input type="checkbox" id="high-quality-mode" style="width: 18px; height: 18px; accent-color: var(--accent-cyan);">
+                            <span style="font-size: 0.9rem; color: var(--text-secondary);">High Quality Mode (full resolution)</span>
+                        </label>
+                        <p style="font-size: 0.7rem; color: var(--text-dim); margin-top: 0.25rem; margin-left: 1.7rem;">Uses PNG, no resolution limit. May be slow on mobile.</p>
+                    </div>
+
+                    <div class="settings-group" style="margin-top: 0.75rem;">
+                        <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer;">
                             <input type="checkbox" id="use-source-timestamp" checked style="width: 18px; height: 18px; accent-color: var(--accent-cyan);">
                             <span style="font-size: 0.9rem; color: var(--text-secondary);">Use source file timestamp (+5s)</span>
                         </label>
@@ -1511,11 +1519,22 @@
             progressContainer.classList.add('visible');
             images = [];
 
-            // Calculate max resolution for mobile (aggressive reduction to save memory)
-            const maxDimension = onMobile ? 1280 : 2560;
+            // Check high quality mode
+            const highQuality = document.getElementById('high-quality-mode').checked;
+            
+            // Calculate max resolution based on mode
+            let maxDimension;
+            if (highQuality) {
+                maxDimension = Infinity; // No limit
+                if (onMobile) {
+                    showToast('High quality mode on mobile - this may be slow...', 'success');
+                }
+            } else {
+                maxDimension = onMobile ? 1280 : 2560;
+            }
             
             // Process in small batches on mobile to prevent memory overload
-            const batchSize = onMobile ? 3 : 10;
+            const batchSize = highQuality ? (onMobile ? 2 : 5) : (onMobile ? 3 : 10);
 
             try {
                 // iOS workaround: "unlock" the video by briefly playing it
@@ -1533,7 +1552,7 @@
                 
                 for (let i = 1; i <= frameCount; i++) {
                     const time = interval * i;
-                    const frame = await extractFrameAtTime(videoPreview, time, maxDimension);
+                    const frame = await extractFrameAtTime(videoPreview, time, maxDimension, highQuality);
                     images.push(frame);
                     updateProgress('Extracting frames', (i / frameCount) * 100);
                     
@@ -1563,15 +1582,15 @@
             }
         }
 
-        function extractFrameAtTime(video, time, maxDimension = Infinity) {
+        function extractFrameAtTime(video, time, maxDimension = Infinity, highQuality = false) {
             return new Promise((resolve, reject) => {
                 // Function to capture the current frame
                 function captureFrame() {
-                    // Calculate dimensions (scale down for mobile if needed)
+                    // Calculate dimensions (scale down if needed)
                     let width = video.videoWidth;
                     let height = video.videoHeight;
                     
-                    if (Math.max(width, height) > maxDimension) {
+                    if (maxDimension !== Infinity && Math.max(width, height) > maxDimension) {
                         const scale = maxDimension / Math.max(width, height);
                         width = Math.round(width * scale);
                         height = Math.round(height * scale);
@@ -1583,8 +1602,10 @@
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(video, 0, 0, width, height);
                     
-                    // Use JPEG for smaller memory footprint (good quality)
-                    const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+                    // Use PNG for high quality (lossless), JPEG for smaller memory footprint
+                    const dataUrl = highQuality 
+                        ? canvas.toDataURL('image/png')
+                        : canvas.toDataURL('image/jpeg', 0.92);
                     
                     const img = new Image();
                     img.onload = () => {
