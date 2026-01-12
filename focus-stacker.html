@@ -1435,8 +1435,19 @@
 
         // Video frame extraction
         function updateFrameCount() {
-            const value = document.getElementById('frame-count').value;
-            document.getElementById('frame-count-value').textContent = `${value} frames`;
+            const value = parseInt(document.getElementById('frame-count').value);
+            let label = `${value} frames`;
+            
+            // Show recommendation on mobile
+            if (isMobileDevice()) {
+                if (value > 30) {
+                    label = `${value} frames ⚠️ may be slow`;
+                } else if (value > 20) {
+                    label = `${value} frames (OK)`;
+                }
+            }
+            
+            document.getElementById('frame-count-value').textContent = label;
         }
 
         async function extractFrames() {
@@ -1453,17 +1464,34 @@
                 return;
             }
 
+            // Warn about high frame counts on mobile
+            if (isMobileDevice() && frameCount > 25) {
+                showToast(`Extracting ${frameCount} frames on mobile - this may take a while...`, 'success');
+            } else {
+                showToast(`Extracting ${frameCount} frames...`, 'success');
+            }
+
             const interval = duration / (frameCount + 1);
 
-            showToast(`Extracting ${frameCount} frames...`, 'success');
             progressContainer.classList.add('visible');
             images = [];
 
+            // Calculate max resolution for mobile (to save memory)
+            const maxDimension = isMobileDevice() ? 1920 : Infinity;
+            
+            // Process in batches to prevent memory overload
+            const batchSize = isMobileDevice() ? 5 : 10;
+            
             for (let i = 1; i <= frameCount; i++) {
                 const time = interval * i;
-                const frame = await extractFrameAtTime(videoPreview, time);
+                const frame = await extractFrameAtTime(videoPreview, time, maxDimension);
                 images.push(frame);
                 updateProgress('Extracting frames', (i / frameCount) * 100);
+                
+                // Allow garbage collection between batches on mobile
+                if (isMobileDevice() && i % batchSize === 0) {
+                    await sleep(100); // Brief pause to let browser breathe
+                }
             }
 
             hideProgress();
@@ -1480,24 +1508,37 @@
             showToast(`Extracted ${frameCount} frames successfully!`, 'success');
         }
 
-        function extractFrameAtTime(video, time) {
+        function extractFrameAtTime(video, time, maxDimension = Infinity) {
             return new Promise((resolve) => {
                 video.currentTime = time;
                 video.onseeked = () => {
+                    // Calculate dimensions (scale down for mobile if needed)
+                    let width = video.videoWidth;
+                    let height = video.videoHeight;
+                    
+                    if (Math.max(width, height) > maxDimension) {
+                        const scale = maxDimension / Math.max(width, height);
+                        width = Math.round(width * scale);
+                        height = Math.round(height * scale);
+                    }
+                    
                     const canvas = document.createElement('canvas');
-                    canvas.width = video.videoWidth;
-                    canvas.height = video.videoHeight;
+                    canvas.width = width;
+                    canvas.height = height;
                     const ctx = canvas.getContext('2d');
-                    ctx.drawImage(video, 0, 0);
+                    ctx.drawImage(video, 0, 0, width, height);
+                    
+                    // Use JPEG for smaller memory footprint (good quality)
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
                     
                     const img = new Image();
                     img.onload = () => {
                         resolve({
                             img: img,
-                            dataUrl: canvas.toDataURL('image/png')
+                            dataUrl: dataUrl
                         });
                     };
-                    img.src = canvas.toDataURL('image/png');
+                    img.src = dataUrl;
                 };
             });
         }
