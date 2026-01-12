@@ -1487,43 +1487,61 @@
             images = [];
 
             // Calculate max resolution for mobile (aggressive reduction to save memory)
-            // 1280px is a good balance between quality and memory on mobile
             const maxDimension = onMobile ? 1280 : 2560;
             
             // Process in small batches on mobile to prevent memory overload
             const batchSize = onMobile ? 3 : 10;
-            
-            for (let i = 1; i <= frameCount; i++) {
-                const time = interval * i;
-                const frame = await extractFrameAtTime(videoPreview, time, maxDimension);
-                images.push(frame);
-                updateProgress('Extracting frames', (i / frameCount) * 100);
-                
-                // Allow garbage collection between batches
-                if (i % batchSize === 0) {
-                    // Force a longer pause on mobile to let memory clear
-                    await sleep(onMobile ? 200 : 50);
-                }
-            }
 
-            hideProgress();
-            
-            // Switch to showing extracted frames
-            currentInputMode = 'images';
-            inputModeText.innerHTML = `<strong>📷 Image Mode:</strong> ${images.length} frames extracted from video`;
-            
-            // Hide video, show image grid
-            videoSection.classList.remove('visible');
-            
-            updateImageGrid();
-            updateStackButton();
-            showToast(`Extracted ${frameCount} frames successfully!`, 'success');
+            try {
+                // iOS workaround: "unlock" the video by briefly playing it
+                // This allows seeking to work on iOS Safari
+                if (onMobile) {
+                    videoPreview.muted = true;
+                    try {
+                        await videoPreview.play();
+                        videoPreview.pause();
+                    } catch (e) {
+                        // Play failed, but seeking might still work
+                        console.log('Video play hint failed, continuing anyway');
+                    }
+                }
+                
+                for (let i = 1; i <= frameCount; i++) {
+                    const time = interval * i;
+                    const frame = await extractFrameAtTime(videoPreview, time, maxDimension);
+                    images.push(frame);
+                    updateProgress('Extracting frames', (i / frameCount) * 100);
+                    
+                    // Allow garbage collection between batches
+                    if (i % batchSize === 0) {
+                        await sleep(onMobile ? 200 : 50);
+                    }
+                }
+
+                hideProgress();
+                
+                // Switch to showing extracted frames
+                currentInputMode = 'images';
+                inputModeText.innerHTML = `<strong>📷 Image Mode:</strong> ${images.length} frames extracted from video`;
+                
+                // Hide video, show image grid
+                videoSection.classList.remove('visible');
+                
+                updateImageGrid();
+                updateStackButton();
+                showToast(`Extracted ${frameCount} frames successfully!`, 'success');
+                
+            } catch (error) {
+                console.error('Frame extraction error:', error);
+                hideProgress();
+                showToast(`Error extracting frames: ${error.message}`, 'error');
+            }
         }
 
         function extractFrameAtTime(video, time, maxDimension = Infinity) {
-            return new Promise((resolve) => {
-                video.currentTime = time;
-                video.onseeked = () => {
+            return new Promise((resolve, reject) => {
+                // Function to capture the current frame
+                function captureFrame() {
                     // Calculate dimensions (scale down for mobile if needed)
                     let width = video.videoWidth;
                     let height = video.videoHeight;
@@ -1550,8 +1568,28 @@
                             dataUrl: dataUrl
                         });
                     };
+                    img.onerror = () => reject(new Error('Failed to load frame'));
                     img.src = dataUrl;
+                }
+
+                // Use addEventListener with once:true to avoid handler conflicts
+                const onSeeked = () => {
+                    captureFrame();
                 };
+                
+                // Add timeout fallback for iOS
+                const timeout = setTimeout(() => {
+                    video.removeEventListener('seeked', onSeeked);
+                    // Try to capture anyway - might work if video is at correct time
+                    captureFrame();
+                }, 1000);
+                
+                video.addEventListener('seeked', () => {
+                    clearTimeout(timeout);
+                    onSeeked();
+                }, { once: true });
+                
+                video.currentTime = time;
             });
         }
 
