@@ -1115,6 +1115,35 @@
                         <p style="font-size: 0.7rem; color: var(--text-dim); margin-top: 0.25rem; margin-left: 1.7rem;">Uses PNG, no resolution limit. May be slow on mobile.</p>
                     </div>
 
+                    <!-- Dark-Field Enhancements -->
+                    <div class="settings-group" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+                        <h4 style="font-size: 0.9rem; font-weight: 500; color: var(--text-primary); margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="color: var(--accent-magenta);">🔬</span>
+                            Dark-Field Enhancements
+                        </h4>
+                        
+                        <div class="setting-label">
+                            <span>Edge Vignette</span>
+                            <span class="setting-value" id="vignette-value">0%</span>
+                        </div>
+                        <input type="range" id="vignette-strength" min="0" max="100" value="0" oninput="updateVignetteValue()">
+                        <p style="font-size: 0.7rem; color: var(--text-dim); margin-top: 0.25rem;">Darkens edges to reduce reflected light halos</p>
+                        
+                        <div class="setting-label" style="margin-top: 1rem;">
+                            <span>Background Reduction</span>
+                            <span class="setting-value" id="bg-reduction-value">0%</span>
+                        </div>
+                        <input type="range" id="bg-reduction" min="0" max="50" value="0" oninput="updateBgReductionValue()">
+                        <p style="font-size: 0.7rem; color: var(--text-dim); margin-top: 0.25rem;">Subtracts background brightness floor</p>
+                        
+                        <div class="setting-label" style="margin-top: 1rem;">
+                            <span>Contrast Boost</span>
+                            <span class="setting-value" id="contrast-value">0%</span>
+                        </div>
+                        <input type="range" id="contrast-boost" min="0" max="100" value="0" oninput="updateContrastValue()">
+                        <p style="font-size: 0.7rem; color: var(--text-dim); margin-top: 0.25rem;">Enhances contrast after stacking</p>
+                    </div>
+
                     <div class="settings-group" style="margin-top: 0.75rem;">
                         <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer;">
                             <input type="checkbox" id="use-source-timestamp" checked style="width: 18px; height: 18px; accent-color: var(--accent-cyan);">
@@ -1648,6 +1677,18 @@
             document.getElementById('blend-value').textContent = document.getElementById('blend-radius').value + 'px';
         }
 
+        function updateVignetteValue() {
+            document.getElementById('vignette-value').textContent = document.getElementById('vignette-strength').value + '%';
+        }
+
+        function updateBgReductionValue() {
+            document.getElementById('bg-reduction-value').textContent = document.getElementById('bg-reduction').value + '%';
+        }
+
+        function updateContrastValue() {
+            document.getElementById('contrast-value').textContent = document.getElementById('contrast-boost').value + '%';
+        }
+
         // Focus stacking algorithm
         // Detect mobile device
         function isMobileDevice() {
@@ -1736,7 +1777,17 @@
 
                 // Blend images based on focus maps
                 updateProgress('Blending images', 80);
-                const resultData = blendImages(imageDataArray, smoothedMaps, width, height);
+                let resultData = blendImages(imageDataArray, smoothedMaps, width, height);
+
+                // Apply dark-field enhancements if any are enabled
+                const vignetteStrength = parseInt(document.getElementById('vignette-strength').value);
+                const bgReduction = parseInt(document.getElementById('bg-reduction').value);
+                const contrastBoost = parseInt(document.getElementById('contrast-boost').value);
+                
+                if (vignetteStrength > 0 || bgReduction > 0 || contrastBoost > 0) {
+                    updateProgress('Applying enhancements', 90);
+                    resultData = applyDarkFieldEnhancements(resultData, width, height, vignetteStrength, bgReduction, contrastBoost);
+                }
 
                 // Put result on canvas
                 updateProgress('Finalizing', 95);
@@ -1950,6 +2001,77 @@
             }
 
             return result;
+        }
+
+        // Apply dark-field enhancements to reduce reflected light artifacts
+        function applyDarkFieldEnhancements(imageData, width, height, vignetteStrength, bgReduction, contrastBoost) {
+            const data = imageData.data;
+            const centerX = width / 2;
+            const centerY = height / 2;
+            const maxDistance = Math.sqrt(centerX * centerX + centerY * centerY);
+            
+            // Calculate background level if reduction is requested
+            let bgLevel = 0;
+            if (bgReduction > 0) {
+                // Sample corners and edges to estimate background
+                let samples = 0;
+                let total = 0;
+                const sampleSize = Math.floor(Math.min(width, height) * 0.05);
+                
+                // Sample corners
+                for (let y = 0; y < sampleSize; y++) {
+                    for (let x = 0; x < sampleSize; x++) {
+                        const idx = (y * width + x) * 4;
+                        total += (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
+                        samples++;
+                    }
+                }
+                bgLevel = (total / samples) * (bgReduction / 100);
+            }
+
+            // Process each pixel
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const idx = (y * width + x) * 4;
+                    let r = data[idx];
+                    let g = data[idx + 1];
+                    let b = data[idx + 2];
+
+                    // Apply background reduction
+                    if (bgReduction > 0) {
+                        r = Math.max(0, r - bgLevel);
+                        g = Math.max(0, g - bgLevel);
+                        b = Math.max(0, b - bgLevel);
+                    }
+
+                    // Apply vignette (darken edges)
+                    if (vignetteStrength > 0) {
+                        const dx = x - centerX;
+                        const dy = y - centerY;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        const normalizedDist = distance / maxDistance;
+                        // Use smooth curve for natural vignette
+                        const vignetteFactor = 1 - (Math.pow(normalizedDist, 2) * (vignetteStrength / 100));
+                        r *= vignetteFactor;
+                        g *= vignetteFactor;
+                        b *= vignetteFactor;
+                    }
+
+                    // Apply contrast boost
+                    if (contrastBoost > 0) {
+                        const factor = 1 + (contrastBoost / 50); // 0-100 maps to 1-3x
+                        r = Math.min(255, Math.max(0, ((r - 128) * factor) + 128));
+                        g = Math.min(255, Math.max(0, ((g - 128) * factor) + 128));
+                        b = Math.min(255, Math.max(0, ((b - 128) * factor) + 128));
+                    }
+
+                    data[idx] = Math.round(r);
+                    data[idx + 1] = Math.round(g);
+                    data[idx + 2] = Math.round(b);
+                }
+            }
+
+            return imageData;
         }
 
         // Comparison slider
