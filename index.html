@@ -1,0 +1,2276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Focus Stacker">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#00d4aa">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%230a0c10' width='100' height='100' rx='20'/><text y='65' x='50' text-anchor='middle' font-size='50'>🔬</text></svg>">
+    <title>Focus Stacker — Microscopy Image Fusion</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-deep: #0a0c10;
+            --bg-primary: #12151c;
+            --bg-secondary: #1a1f2a;
+            --bg-tertiary: #242b3a;
+            --accent-cyan: #00d4aa;
+            --accent-cyan-dim: #00d4aa40;
+            --accent-magenta: #ff3d7f;
+            --accent-amber: #ffb830;
+            --text-primary: #e8ecf4;
+            --text-secondary: #8892a8;
+            --text-dim: #4a5568;
+            --border: #2d3548;
+            --success: #10b981;
+            --error: #ef4444;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg-deep);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Animated background */
+        .bg-pattern {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 0;
+            background: 
+                radial-gradient(ellipse 80% 50% at 20% 40%, var(--accent-cyan-dim) 0%, transparent 50%),
+                radial-gradient(ellipse 60% 40% at 80% 60%, rgba(255, 61, 127, 0.15) 0%, transparent 50%),
+                repeating-linear-gradient(
+                    0deg,
+                    transparent,
+                    transparent 100px,
+                    rgba(0, 212, 170, 0.03) 100px,
+                    rgba(0, 212, 170, 0.03) 101px
+                ),
+                repeating-linear-gradient(
+                    90deg,
+                    transparent,
+                    transparent 100px,
+                    rgba(0, 212, 170, 0.03) 100px,
+                    rgba(0, 212, 170, 0.03) 101px
+                );
+            pointer-events: none;
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Header */
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+            animation: fadeInDown 0.6s ease-out;
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .logo {
+            display: inline-flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .logo-icon {
+            width: 56px;
+            height: 56px;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-magenta));
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            box-shadow: 0 8px 32px var(--accent-cyan-dim);
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--text-primary), var(--accent-cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .tagline {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            font-weight: 300;
+        }
+
+        /* Main layout */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            animation: fadeIn 0.8s ease-out 0.2s both;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @media (max-width: 1024px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Mobile styles */
+        @media (max-width: 640px) {
+            .container {
+                padding: 1rem;
+            }
+
+            header {
+                margin-bottom: 1.5rem;
+            }
+
+            .logo {
+                flex-direction: column;
+                gap: 0.5rem;
+                text-align: center;
+            }
+
+            .logo-icon {
+                width: 48px;
+                height: 48px;
+                font-size: 24px;
+            }
+
+            h1 {
+                font-size: 1.75rem;
+            }
+
+            .tagline {
+                font-size: 0.95rem;
+            }
+
+            .panel {
+                padding: 1rem;
+                border-radius: 16px;
+            }
+
+            .panel-header {
+                margin-bottom: 1rem;
+                padding-bottom: 0.75rem;
+            }
+
+            .upload-zone {
+                padding: 2rem 1rem;
+            }
+
+            .upload-zone .upload-icon {
+                font-size: 2.5rem;
+            }
+
+            .upload-zone h3 {
+                font-size: 1rem;
+            }
+
+            .upload-zone p {
+                font-size: 0.8rem;
+            }
+
+            .image-grid {
+                grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+                gap: 0.5rem;
+                max-height: 200px;
+            }
+
+            .image-thumb .remove-btn {
+                opacity: 1;
+                width: 24px;
+                height: 24px;
+                font-size: 14px;
+            }
+
+            .btn {
+                padding: 1rem 1.25rem;
+                font-size: 1rem;
+                min-height: 48px; /* Touch-friendly minimum */
+            }
+
+            .btn-icon {
+                width: 48px;
+                height: 48px;
+            }
+
+            .settings-group {
+                margin-bottom: 1.25rem;
+            }
+
+            input[type="range"] {
+                height: 8px;
+            }
+
+            input[type="range"]::-webkit-slider-thumb {
+                width: 24px;
+                height: 24px;
+            }
+
+            select {
+                padding: 1rem;
+                font-size: 1rem;
+                min-height: 48px;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 0.5rem;
+            }
+
+            .stat-card {
+                padding: 0.75rem 0.5rem;
+            }
+
+            .stat-value {
+                font-size: 1.1rem;
+            }
+
+            .stat-label {
+                font-size: 0.65rem;
+            }
+
+            .result-container {
+                min-height: 250px;
+            }
+
+            .toast-container {
+                bottom: 1rem;
+                right: 1rem;
+                left: 1rem;
+            }
+
+            .toast {
+                padding: 0.75rem 1rem;
+                font-size: 0.9rem;
+            }
+
+            .comparison-slider::before {
+                width: 36px;
+                height: 36px;
+                font-size: 14px;
+            }
+
+            footer {
+                margin-top: 2rem;
+                padding-top: 1.5rem;
+                font-size: 0.75rem;
+            }
+        }
+
+        /* Touch-friendly improvements */
+        @media (pointer: coarse) {
+            .image-thumb .remove-btn {
+                opacity: 1;
+            }
+
+            .help-icon {
+                width: 24px;
+                height: 24px;
+                font-size: 13px;
+            }
+        }
+
+        /* Prevent pull-to-refresh on mobile */
+        html, body {
+            overscroll-behavior: none;
+        }
+
+        /* Panels */
+        .panel {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .panel:hover {
+            border-color: var(--accent-cyan-dim);
+            box-shadow: 0 0 40px rgba(0, 212, 170, 0.1);
+        }
+
+        .panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .panel-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .panel-title .icon {
+            color: var(--accent-cyan);
+        }
+
+        /* Upload zone */
+        .upload-zone {
+            border: 2px dashed var(--border);
+            border-radius: 16px;
+            padding: 3rem 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: var(--bg-secondary);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .upload-zone::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, var(--accent-cyan-dim), transparent);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none; /* Allow clicks/touches to pass through */
+        }
+
+        .upload-zone:hover,
+        .upload-zone.drag-over {
+            border-color: var(--accent-cyan);
+            background: var(--bg-tertiary);
+        }
+
+        .upload-zone:hover::before,
+        .upload-zone.drag-over::before {
+            opacity: 1;
+        }
+
+        .upload-zone .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            position: relative;
+            z-index: 1;
+            pointer-events: none; /* Pass touches to parent */
+        }
+
+        .upload-zone h3 {
+            font-size: 1.2rem;
+            margin-bottom: 0.5rem;
+            position: relative;
+            z-index: 1;
+            pointer-events: none; /* Pass touches to parent */
+        }
+
+        .upload-zone p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            position: relative;
+            z-index: 1;
+            pointer-events: none; /* Pass touches to parent */
+        }
+
+        .upload-zone input {
+            /* Make input cover entire zone but invisible - iOS requires direct tap on input */
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+            z-index: 10;
+        }
+
+        /* Input mode indicator */
+        .input-mode {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            padding: 0.75rem 1rem;
+            background: var(--bg-tertiary);
+            border-radius: 10px;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .input-mode.active {
+            background: var(--accent-cyan-dim);
+            color: var(--accent-cyan);
+        }
+
+        .input-mode .mode-icon {
+            font-size: 1.1rem;
+        }
+
+        /* Image grid */
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 0.75rem;
+            max-height: 300px;
+            overflow-y: auto;
+            padding: 0.5rem;
+            margin: -0.5rem;
+        }
+
+        .image-grid::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .image-grid::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+            border-radius: 3px;
+        }
+
+        .image-grid::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 3px;
+        }
+
+        .image-thumb {
+            aspect-ratio: 1;
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .image-thumb:hover {
+            transform: scale(1.05);
+            border-color: var(--accent-cyan);
+        }
+
+        .image-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .image-thumb .remove-btn {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            width: 20px;
+            height: 20px;
+            background: var(--error);
+            border: none;
+            border-radius: 50%;
+            color: white;
+            font-size: 12px;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .image-thumb:hover .remove-btn {
+            opacity: 1;
+        }
+
+        .image-thumb .index {
+            position: absolute;
+            bottom: 4px;
+            left: 4px;
+            background: rgba(0, 0, 0, 0.7);
+            color: var(--text-primary);
+            font-size: 10px;
+            font-family: 'JetBrains Mono', monospace;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-dim);
+        }
+
+        .empty-state .icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        /* Video controls */
+        .video-section {
+            display: none;
+            margin-top: 1rem;
+        }
+
+        .video-section.visible {
+            display: block;
+        }
+
+        .video-preview {
+            width: 100%;
+            border-radius: 12px;
+            background: var(--bg-secondary);
+        }
+
+        .frame-selector {
+            margin-top: 1rem;
+        }
+
+        /* Settings */
+        .settings-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .settings-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .setting-label {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.75rem;
+        }
+
+        .setting-label span {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .setting-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--accent-cyan);
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            background: var(--bg-tertiary);
+            border-radius: 3px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            background: var(--accent-cyan);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 10px var(--accent-cyan-dim);
+            transition: transform 0.2s ease;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        select {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 0.9rem;
+            cursor: pointer;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        select:hover, select:focus {
+            border-color: var(--accent-cyan);
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.875rem 1.5rem;
+            border: none;
+            border-radius: 12px;
+            font-family: inherit;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-cyan), #00b894);
+            color: var(--bg-deep);
+            box-shadow: 0 4px 20px var(--accent-cyan-dim);
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px var(--accent-cyan-dim);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-tertiary);
+            border-color: var(--accent-cyan);
+        }
+
+        .btn-icon {
+            width: 40px;
+            height: 40px;
+            padding: 0;
+            border-radius: 10px;
+        }
+
+        .action-bar {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .action-bar .btn {
+            flex: 1;
+        }
+
+        /* Progress */
+        .progress-container {
+            margin-top: 1.5rem;
+            display: none;
+        }
+
+        .progress-container.visible {
+            display: block;
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+
+        .progress-label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .progress-percent {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--accent-cyan);
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-cyan), var(--accent-magenta));
+            border-radius: 4px;
+            transition: width 0.3s ease;
+            position: relative;
+        }
+
+        .progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(
+                90deg,
+                transparent,
+                rgba(255, 255, 255, 0.3),
+                transparent
+            );
+            animation: shimmer 1.5s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        /* Result panel */
+        .result-container {
+            position: relative;
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            overflow: hidden;
+            min-height: 400px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .result-container img {
+            max-width: 100%;
+            max-height: 500px;
+            object-fit: contain;
+        }
+
+        .result-placeholder {
+            text-align: center;
+            color: var(--text-dim);
+        }
+
+        .result-placeholder .icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            opacity: 0.3;
+        }
+
+        .result-placeholder p {
+            font-size: 0.95rem;
+        }
+
+        /* Comparison slider */
+        .comparison-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            display: none;
+        }
+
+        .comparison-container.visible {
+            display: block;
+        }
+
+        .comparison-container img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .comparison-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 50%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .comparison-overlay img {
+            width: 200%;
+            max-width: none;
+        }
+
+        .comparison-slider {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 50%;
+            width: 4px;
+            background: var(--accent-cyan);
+            cursor: ew-resize;
+            z-index: 10;
+        }
+
+        .comparison-slider::before {
+            content: '⟷';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 40px;
+            height: 40px;
+            background: var(--accent-cyan);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--bg-deep);
+            font-weight: bold;
+        }
+
+        .comparison-labels {
+            position: absolute;
+            bottom: 1rem;
+            left: 1rem;
+            right: 1rem;
+            display: flex;
+            justify-content: space-between;
+            pointer-events: none;
+        }
+
+        .comparison-label {
+            background: rgba(0, 0, 0, 0.7);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        /* Statistics */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .stat-card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--accent-cyan);
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: 0.25rem;
+        }
+
+        /* Toast notifications */
+        .toast-container {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .toast {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1rem 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            animation: slideIn 0.3s ease-out;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(100%);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .toast.success {
+            border-color: var(--success);
+        }
+
+        .toast.error {
+            border-color: var(--error);
+        }
+
+        .toast .icon {
+            font-size: 1.25rem;
+        }
+
+        .toast.success .icon {
+            color: var(--success);
+        }
+
+        .toast.error .icon {
+            color: var(--error);
+        }
+
+        /* Loading spinner */
+        .spinner {
+            width: 24px;
+            height: 24px;
+            border: 3px solid var(--bg-tertiary);
+            border-top-color: var(--accent-cyan);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Help tooltip */
+        .help-icon {
+            width: 18px;
+            height: 18px;
+            background: var(--bg-tertiary);
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            color: var(--text-secondary);
+            cursor: help;
+            position: relative;
+        }
+
+        .help-icon:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            padding: 0.5rem 0.75rem;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            white-space: nowrap;
+            z-index: 100;
+            margin-bottom: 8px;
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            margin-top: 3rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--border);
+            color: var(--text-dim);
+            font-size: 0.85rem;
+        }
+
+        footer a {
+            color: var(--accent-cyan);
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-pattern"></div>
+    
+    <div class="container">
+        <header>
+            <div class="logo">
+                <div class="logo-icon">🔬</div>
+                <div>
+                    <h1>Focus Stacker</h1>
+                    <p class="tagline">Microscopy Image Fusion Tool</p>
+                </div>
+            </div>
+        </header>
+
+        <div class="main-grid">
+            <!-- Input Panel -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">
+                        <span class="icon">📥</span>
+                        Input
+                    </h2>
+                    <button class="btn btn-secondary btn-icon" onclick="clearAll()" title="Clear all">
+                        🗑️
+                    </button>
+                </div>
+
+                <!-- Unified upload zone -->
+                <div class="upload-zone" id="upload-zone">
+                    <div class="upload-icon">📸</div>
+                    <h3>Drop files here</h3>
+                    <p>Multiple images <strong>or</strong> a single video • PNG, JPG, MP4, MOV, WebM</p>
+                    <input type="file" id="file-input" multiple accept="image/*,video/*">
+                </div>
+
+                <!-- Input mode indicator -->
+                <div class="input-mode" id="input-mode">
+                    <span class="mode-icon">⏳</span>
+                    <span id="input-mode-text">Waiting for input...</span>
+                </div>
+
+                <!-- Video controls (shown when video is loaded) -->
+                <div class="video-section" id="video-section">
+                    <video id="video-preview" class="video-preview" controls></video>
+                    <div class="frame-selector">
+                        <div class="setting-label">
+                            <span>Extract frames</span>
+                            <span class="setting-value" id="frame-count-value">10 frames</span>
+                        </div>
+                        <input type="range" id="frame-count" min="3" max="50" value="10" oninput="updateFrameCount()">
+                        <button class="btn btn-secondary" style="width: 100%; margin-top: 1rem;" onclick="extractFrames()">
+                            🎞️ Extract Frames from Video
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Image preview grid -->
+                <div id="image-preview" style="margin-top: 1rem;">
+                    <div class="empty-state" id="empty-state">
+                        <div class="icon">🖼️</div>
+                        <p>No images loaded yet</p>
+                    </div>
+                    <div class="image-grid" id="image-grid" style="display: none;"></div>
+                </div>
+
+                <!-- Settings -->
+                <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border);">
+                    <h3 class="panel-title" style="margin-bottom: 1rem;">
+                        <span class="icon">⚙️</span>
+                        Stacking Settings
+                    </h3>
+
+                    <div class="settings-group">
+                        <div class="setting-label">
+                            <span>Algorithm</span>
+                            <span class="help-icon" data-tooltip="Method used to detect focus">?</span>
+                        </div>
+                        <select id="algorithm">
+                            <option value="laplacian">Laplacian (Recommended)</option>
+                            <option value="sobel">Sobel Gradient</option>
+                            <option value="variance">Local Variance</option>
+                        </select>
+                    </div>
+
+                    <div class="settings-group">
+                        <div class="setting-label">
+                            <span>Kernel Size</span>
+                            <span class="setting-value" id="kernel-value">5</span>
+                        </div>
+                        <input type="range" id="kernel-size" min="3" max="15" step="2" value="5" oninput="updateKernelValue()">
+                    </div>
+
+                    <div class="settings-group">
+                        <div class="setting-label">
+                            <span>Blend Radius</span>
+                            <span class="setting-value" id="blend-value">30px</span>
+                        </div>
+                        <input type="range" id="blend-radius" min="10" max="100" value="30" oninput="updateBlendValue()">
+                    </div>
+
+                    <div class="settings-group" style="margin-top: 1rem;">
+                        <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer;">
+                            <input type="checkbox" id="high-quality-mode" style="width: 18px; height: 18px; accent-color: var(--accent-cyan);">
+                            <span style="font-size: 0.9rem; color: var(--text-secondary);">High Quality Mode (full resolution)</span>
+                        </label>
+                        <p style="font-size: 0.7rem; color: var(--text-dim); margin-top: 0.25rem; margin-left: 1.7rem;">Uses PNG, no resolution limit. May be slow on mobile.</p>
+                    </div>
+
+                    <!-- Dark-Field Enhancements -->
+                    <div class="settings-group" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+                        <h4 style="font-size: 0.9rem; font-weight: 500; color: var(--text-primary); margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="color: var(--accent-magenta);">🔬</span>
+                            Dark-Field Enhancements
+                        </h4>
+                        
+                        <div class="setting-label">
+                            <span>Edge Vignette</span>
+                            <span class="setting-value" id="vignette-value">0%</span>
+                        </div>
+                        <input type="range" id="vignette-strength" min="0" max="100" value="0" oninput="updateVignetteValue()">
+                        <p style="font-size: 0.7rem; color: var(--text-dim); margin-top: 0.25rem;">Darkens edges to reduce reflected light halos</p>
+                        
+                        <div class="setting-label" style="margin-top: 1rem;">
+                            <span>Background Reduction</span>
+                            <span class="setting-value" id="bg-reduction-value">0%</span>
+                        </div>
+                        <input type="range" id="bg-reduction" min="0" max="50" value="0" oninput="updateBgReductionValue()">
+                        <p style="font-size: 0.7rem; color: var(--text-dim); margin-top: 0.25rem;">Subtracts background brightness floor</p>
+                        
+                        <div class="setting-label" style="margin-top: 1rem;">
+                            <span>Contrast Boost</span>
+                            <span class="setting-value" id="contrast-value">0%</span>
+                        </div>
+                        <input type="range" id="contrast-boost" min="0" max="100" value="0" oninput="updateContrastValue()">
+                        <p style="font-size: 0.7rem; color: var(--text-dim); margin-top: 0.25rem;">Enhances contrast after stacking</p>
+                    </div>
+
+                    <div class="settings-group" style="margin-top: 0.75rem;">
+                        <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer;">
+                            <input type="checkbox" id="use-source-timestamp" checked style="width: 18px; height: 18px; accent-color: var(--accent-cyan);">
+                            <span style="font-size: 0.9rem; color: var(--text-secondary);">Use source file timestamp (+5s)</span>
+                        </label>
+                        <p id="timestamp-preview" style="font-size: 0.75rem; color: var(--text-dim); margin-top: 0.5rem; font-family: 'JetBrains Mono', monospace;"></p>
+                    </div>
+                </div>
+
+                <div class="action-bar">
+                    <button class="btn btn-primary" id="stack-btn" onclick="startStacking()" disabled>
+                        <span id="stack-btn-text">🔬 Stack Images</span>
+                        <div class="spinner" id="stack-spinner" style="display: none;"></div>
+                    </button>
+                </div>
+
+                <div class="progress-container" id="progress-container">
+                    <div class="progress-header">
+                        <span class="progress-label" id="progress-label">Processing...</span>
+                        <span class="progress-percent" id="progress-percent">0%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Output Panel -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">
+                        <span class="icon">✨</span>
+                        Result
+                    </h2>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button class="btn btn-secondary btn-icon" id="compare-btn" onclick="toggleComparison()" title="Compare" style="display: none;">
+                            🔄
+                        </button>
+                        <button class="btn btn-secondary btn-icon" id="share-btn" onclick="shareResult()" title="Share / Save to Photos" style="display: none;">
+                            📤
+                        </button>
+                        <button class="btn btn-secondary btn-icon" id="download-btn" onclick="downloadResult()" title="Download" style="display: none;">
+                            💾
+                        </button>
+                    </div>
+                </div>
+
+                <div class="result-container" id="result-container">
+                    <div class="result-placeholder" id="result-placeholder">
+                        <div class="icon">🎯</div>
+                        <p>Stacked result will appear here</p>
+                    </div>
+                    <img id="result-image" style="display: none;">
+                    
+                    <div class="comparison-container" id="comparison-container">
+                        <img id="comparison-before">
+                        <div class="comparison-overlay" id="comparison-overlay">
+                            <img id="comparison-after">
+                        </div>
+                        <div class="comparison-slider" id="comparison-slider"></div>
+                        <div class="comparison-labels">
+                            <span class="comparison-label">Original</span>
+                            <span class="comparison-label">Stacked</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stats-grid" id="stats-grid" style="display: none;">
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-images">0</div>
+                        <div class="stat-label">Images Stacked</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-resolution">0×0</div>
+                        <div class="stat-label">Resolution</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-time">0s</div>
+                        <div class="stat-label">Processing Time</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>Focus Stacker — Built for microscopy imaging workflows</p>
+        </footer>
+    </div>
+
+    <div class="toast-container" id="toast-container"></div>
+
+    <script>
+        // State
+        let images = [];
+        let resultImageData = null;
+        let isComparing = false;
+        let currentInputMode = null; // 'images' or 'video'
+        let loadedVideo = null;
+        let latestSourceTimestamp = null; // Track latest timestamp from source files
+
+        // DOM Elements
+        const uploadZone = document.getElementById('upload-zone');
+        const fileInput = document.getElementById('file-input');
+        const imageGrid = document.getElementById('image-grid');
+        const emptyState = document.getElementById('empty-state');
+        const stackBtn = document.getElementById('stack-btn');
+        const progressContainer = document.getElementById('progress-container');
+        const resultImage = document.getElementById('result-image');
+        const resultPlaceholder = document.getElementById('result-placeholder');
+        const inputMode = document.getElementById('input-mode');
+        const inputModeText = document.getElementById('input-mode-text');
+        const videoSection = document.getElementById('video-section');
+        const videoPreview = document.getElementById('video-preview');
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            setupDragDrop();
+        });
+
+        // Drag & Drop (with touch support)
+        function setupDragDrop() {
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                uploadZone.addEventListener(eventName, preventDefaults);
+                document.body.addEventListener(eventName, preventDefaults);
+            });
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                uploadZone.addEventListener(eventName, () => uploadZone.classList.add('drag-over'));
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                uploadZone.addEventListener(eventName, () => uploadZone.classList.remove('drag-over'));
+            });
+
+            uploadZone.addEventListener('drop', handleDrop);
+            
+            // File input now covers the entire zone (for iOS compatibility)
+            // so direct taps on the zone hit the input element
+            fileInput.addEventListener('change', handleFileSelect);
+            
+            // Visual feedback for touch
+            fileInput.addEventListener('touchstart', () => {
+                uploadZone.classList.add('drag-over');
+            }, { passive: true });
+            
+            fileInput.addEventListener('touchend', () => {
+                uploadZone.classList.remove('drag-over');
+            }, { passive: true });
+        }
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        function handleDrop(e) {
+            const files = [...e.dataTransfer.files];
+            if (files.length > 0) {
+                processFiles(files);
+            }
+        }
+
+        function handleFileSelect(e) {
+            const files = [...e.target.files];
+            if (files.length > 0) {
+                processFiles(files);
+            }
+            // Reset input so same files can be selected again
+            e.target.value = '';
+        }
+
+        // Process uploaded files - auto-detect type and validate
+        function processFiles(files) {
+            const imageFiles = files.filter(f => f.type.startsWith('image/'));
+            const videoFiles = files.filter(f => f.type.startsWith('video/'));
+
+            // Check for mixed input
+            if (imageFiles.length > 0 && videoFiles.length > 0) {
+                showToast('Error: Cannot mix images and video. Please choose one or the other.', 'error');
+                return;
+            }
+
+            // Check for multiple videos
+            if (videoFiles.length > 1) {
+                showToast('Error: Please upload only one video file.', 'error');
+                return;
+            }
+
+            // Check if trying to add different type than current mode
+            if (currentInputMode === 'images' && videoFiles.length > 0) {
+                showToast('Error: Video cannot be added when images are already loaded. Clear first.', 'error');
+                return;
+            }
+
+            if (currentInputMode === 'video' && imageFiles.length > 0) {
+                showToast('Error: Images cannot be added when a video is already loaded. Clear first.', 'error');
+                return;
+            }
+
+            // Process based on file type
+            if (videoFiles.length === 1) {
+                loadVideo(videoFiles[0]);
+            } else if (imageFiles.length > 0) {
+                loadImages(imageFiles);
+            } else {
+                showToast('No valid image or video files found.', 'error');
+            }
+        }
+
+        // Load video
+        function loadVideo(file) {
+            currentInputMode = 'video';
+            loadedVideo = file;
+            
+            // Track video timestamp
+            if (file.lastModified) {
+                latestSourceTimestamp = file.lastModified;
+            }
+            
+            const url = URL.createObjectURL(file);
+            videoPreview.src = url;
+            videoSection.classList.add('visible');
+            
+            // Update mode indicator
+            inputMode.classList.add('active');
+            inputModeText.innerHTML = `<strong>🎬 Video Mode:</strong> ${file.name} (loading...)`;
+            
+            // Hide image grid, show video section
+            emptyState.style.display = 'none';
+            imageGrid.style.display = 'none';
+            
+            // Wait for metadata to load before allowing extraction
+            videoPreview.onloadedmetadata = () => {
+                const duration = videoPreview.duration.toFixed(1);
+                inputModeText.innerHTML = `<strong>🎬 Video Mode:</strong> ${file.name} (${duration}s)`;
+                showToast('Video ready! Set frame count and extract.', 'success');
+            };
+            
+            updateStackButton();
+            updateTimestampPreview();
+        }
+
+        // Load images
+        async function loadImages(files) {
+            currentInputMode = 'images';
+            
+            showToast(`Loading ${files.length} image${files.length > 1 ? 's' : ''}...`, 'success');
+            
+            for (const file of files) {
+                const img = await loadImage(file);
+                images.push({
+                    file: file,
+                    img: img,
+                    dataUrl: img.src
+                });
+                
+                // Track latest timestamp from source files
+                if (file.lastModified) {
+                    if (!latestSourceTimestamp || file.lastModified > latestSourceTimestamp) {
+                        latestSourceTimestamp = file.lastModified;
+                    }
+                }
+            }
+
+            // Update mode indicator
+            inputMode.classList.add('active');
+            inputModeText.innerHTML = `<strong>📷 Image Mode:</strong> ${images.length} image${images.length !== 1 ? 's' : ''} loaded`;
+
+            // Hide video section
+            videoSection.classList.remove('visible');
+
+            updateImageGrid();
+            updateStackButton();
+            updateTimestampPreview();
+        }
+
+        function loadImage(file) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => resolve(img);
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function updateImageGrid() {
+            if (images.length === 0) {
+                emptyState.style.display = 'block';
+                imageGrid.style.display = 'none';
+                return;
+            }
+
+            emptyState.style.display = 'none';
+            imageGrid.style.display = 'grid';
+            imageGrid.innerHTML = images.map((img, i) => `
+                <div class="image-thumb" onclick="previewImage(${i})">
+                    <img src="${img.dataUrl}" alt="Image ${i + 1}">
+                    <button class="remove-btn" onclick="event.stopPropagation(); removeImage(${i})">×</button>
+                    <span class="index">${i + 1}</span>
+                </div>
+            `).join('');
+        }
+
+        function removeImage(index) {
+            images.splice(index, 1);
+            updateImageGrid();
+            updateStackButton();
+            
+            // Update mode indicator
+            if (images.length === 0) {
+                resetInputMode();
+            } else {
+                inputModeText.innerHTML = `<strong>📷 Image Mode:</strong> ${images.length} image${images.length !== 1 ? 's' : ''} loaded`;
+            }
+        }
+
+        function clearAll() {
+            images = [];
+            loadedVideo = null;
+            latestSourceTimestamp = null;
+            resetInputMode();
+            updateImageGrid();
+            updateStackButton();
+            updateTimestampPreview();
+            
+            // Reset video
+            videoPreview.src = '';
+            videoSection.classList.remove('visible');
+            
+            // Reset result
+            resultImage.style.display = 'none';
+            resultPlaceholder.style.display = 'block';
+            document.getElementById('stats-grid').style.display = 'none';
+            document.getElementById('download-btn').style.display = 'none';
+            document.getElementById('share-btn').style.display = 'none';
+            document.getElementById('compare-btn').style.display = 'none';
+            
+            showToast('Cleared all inputs', 'success');
+        }
+
+        function resetInputMode() {
+            currentInputMode = null;
+            inputMode.classList.remove('active');
+            inputModeText.innerHTML = 'Waiting for input...';
+        }
+
+        function previewImage(index) {
+            console.log('Preview image', index);
+        }
+
+        function updateStackButton() {
+            stackBtn.disabled = images.length < 2;
+        }
+
+        // Video frame extraction
+        function updateFrameCount() {
+            const value = parseInt(document.getElementById('frame-count').value);
+            let label = `${value} frames`;
+            
+            // Show recommendation on mobile
+            if (isMobileDevice()) {
+                if (value > 35) {
+                    label = `${value} frames ⚠️ may crash`;
+                } else if (value > 25) {
+                    label = `${value} frames ⚠️ slow`;
+                } else if (value > 15) {
+                    label = `${value} frames (OK)`;
+                }
+            }
+            
+            document.getElementById('frame-count-value').textContent = label;
+        }
+
+        async function extractFrames() {
+            if (!videoPreview.src) {
+                showToast('Please upload a video first', 'error');
+                return;
+            }
+
+            const frameCount = parseInt(document.getElementById('frame-count').value);
+            const duration = videoPreview.duration;
+            
+            // Check if metadata is loaded (duration available)
+            if (!duration || duration === 0 || isNaN(duration)) {
+                showToast('Video still loading - try again in a moment', 'error');
+                return;
+            }
+
+            // Warn about high frame counts on mobile
+            const onMobile = isMobileDevice();
+            if (onMobile && frameCount > 20) {
+                showToast(`Extracting ${frameCount} frames on mobile - please wait...`, 'success');
+            } else {
+                showToast(`Extracting ${frameCount} frames...`, 'success');
+            }
+
+            const interval = duration / (frameCount + 1);
+
+            progressContainer.classList.add('visible');
+            images = [];
+
+            // Check high quality mode
+            const highQuality = document.getElementById('high-quality-mode').checked;
+            
+            // Calculate max resolution based on mode
+            let maxDimension;
+            if (highQuality) {
+                maxDimension = Infinity; // No limit
+                if (onMobile) {
+                    showToast('High quality mode on mobile - this may be slow...', 'success');
+                }
+            } else {
+                maxDimension = onMobile ? 1280 : 2560;
+            }
+            
+            // Process in small batches on mobile to prevent memory overload
+            const batchSize = highQuality ? (onMobile ? 2 : 5) : (onMobile ? 3 : 10);
+
+            try {
+                // iOS workaround: "unlock" the video by briefly playing it
+                // This allows seeking to work on iOS Safari
+                if (onMobile) {
+                    videoPreview.muted = true;
+                    try {
+                        await videoPreview.play();
+                        videoPreview.pause();
+                    } catch (e) {
+                        // Play failed, but seeking might still work
+                        console.log('Video play hint failed, continuing anyway');
+                    }
+                }
+                
+                for (let i = 1; i <= frameCount; i++) {
+                    const time = interval * i;
+                    const frame = await extractFrameAtTime(videoPreview, time, maxDimension, highQuality);
+                    images.push(frame);
+                    updateProgress('Extracting frames', (i / frameCount) * 100);
+                    
+                    // Allow garbage collection between batches
+                    if (i % batchSize === 0) {
+                        await sleep(onMobile ? 200 : 50);
+                    }
+                }
+
+                hideProgress();
+                
+                // Switch to showing extracted frames
+                currentInputMode = 'images';
+                inputModeText.innerHTML = `<strong>📷 Image Mode:</strong> ${images.length} frames extracted from video`;
+                
+                // Hide video, show image grid
+                videoSection.classList.remove('visible');
+                
+                updateImageGrid();
+                updateStackButton();
+                showToast(`Extracted ${frameCount} frames successfully!`, 'success');
+                
+            } catch (error) {
+                console.error('Frame extraction error:', error);
+                hideProgress();
+                showToast(`Error extracting frames: ${error.message}`, 'error');
+            }
+        }
+
+        function extractFrameAtTime(video, time, maxDimension = Infinity, highQuality = false) {
+            return new Promise((resolve, reject) => {
+                // Function to capture the current frame
+                function captureFrame() {
+                    // Calculate dimensions (scale down if needed)
+                    let width = video.videoWidth;
+                    let height = video.videoHeight;
+                    
+                    if (maxDimension !== Infinity && Math.max(width, height) > maxDimension) {
+                        const scale = maxDimension / Math.max(width, height);
+                        width = Math.round(width * scale);
+                        height = Math.round(height * scale);
+                    }
+                    
+                    const canvas = document.createElement('canvas');
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(video, 0, 0, width, height);
+                    
+                    // Use PNG for high quality (lossless), JPEG for smaller memory footprint
+                    const dataUrl = highQuality 
+                        ? canvas.toDataURL('image/png')
+                        : canvas.toDataURL('image/jpeg', 0.92);
+                    
+                    const img = new Image();
+                    img.onload = () => {
+                        resolve({
+                            img: img,
+                            dataUrl: dataUrl
+                        });
+                    };
+                    img.onerror = () => reject(new Error('Failed to load frame'));
+                    img.src = dataUrl;
+                }
+
+                // Use addEventListener with once:true to avoid handler conflicts
+                const onSeeked = () => {
+                    captureFrame();
+                };
+                
+                // Add timeout fallback for iOS
+                const timeout = setTimeout(() => {
+                    video.removeEventListener('seeked', onSeeked);
+                    // Try to capture anyway - might work if video is at correct time
+                    captureFrame();
+                }, 1000);
+                
+                video.addEventListener('seeked', () => {
+                    clearTimeout(timeout);
+                    onSeeked();
+                }, { once: true });
+                
+                video.currentTime = time;
+            });
+        }
+
+        // Settings updates
+        function updateKernelValue() {
+            document.getElementById('kernel-value').textContent = document.getElementById('kernel-size').value;
+        }
+
+        function updateBlendValue() {
+            document.getElementById('blend-value').textContent = document.getElementById('blend-radius').value + 'px';
+        }
+
+        function updateVignetteValue() {
+            document.getElementById('vignette-value').textContent = document.getElementById('vignette-strength').value + '%';
+        }
+
+        function updateBgReductionValue() {
+            document.getElementById('bg-reduction-value').textContent = document.getElementById('bg-reduction').value + '%';
+        }
+
+        function updateContrastValue() {
+            document.getElementById('contrast-value').textContent = document.getElementById('contrast-boost').value + '%';
+        }
+
+        // Focus stacking algorithm
+        // Detect mobile device
+        function isMobileDevice() {
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) 
+                || window.innerWidth <= 768;
+        }
+
+        async function startStacking() {
+            if (images.length < 2) {
+                showToast('Need at least 2 images to stack', 'error');
+                return;
+            }
+
+            // Check for large images on mobile and warn user
+            const maxDimension = Math.max(
+                ...images.map(img => Math.max(img.img.width, img.img.height))
+            );
+            const totalPixels = images.reduce((sum, img) => 
+                sum + (img.img.width * img.img.height), 0
+            );
+
+            if (isMobileDevice() && totalPixels > 10000000) { // > 10 megapixels total
+                showToast('Processing large images on mobile may be slow...', 'success');
+            }
+
+            const startTime = performance.now();
+            
+            // UI updates
+            stackBtn.disabled = true;
+            document.getElementById('stack-btn-text').textContent = 'Processing...';
+            document.getElementById('stack-spinner').style.display = 'block';
+            progressContainer.classList.add('visible');
+
+            try {
+                const algorithm = document.getElementById('algorithm').value;
+                const kernelSize = parseInt(document.getElementById('kernel-size').value);
+                const blendRadius = parseInt(document.getElementById('blend-radius').value);
+
+                // Get minimum dimensions from all images (scaling down preserves quality better than scaling up)
+                const width = Math.min(...images.map(img => img.img.width));
+                const height = Math.min(...images.map(img => img.img.height));
+
+                // Check if images have different sizes
+                const sizesVary = images.some(img => 
+                    img.img.width !== width || img.img.height !== height
+                );
+                if (sizesVary) {
+                    showToast(`Note: Images have different sizes. Scaling to ${width}×${height} (smallest)`, 'success');
+                }
+
+                // Create canvases for processing
+                const resultCanvas = document.createElement('canvas');
+                resultCanvas.width = width;
+                resultCanvas.height = height;
+                const resultCtx = resultCanvas.getContext('2d');
+
+                // Get image data for all images
+                updateProgress('Loading image data', 10);
+                const imageDataArray = await Promise.all(images.map(async (img, i) => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    // Scale all images to minimum dimensions (downscaling preserves quality)
+                    ctx.drawImage(img.img, 0, 0, width, height);
+                    return ctx.getImageData(0, 0, width, height);
+                }));
+
+                // Calculate focus maps for each image
+                updateProgress('Calculating focus maps', 30);
+                const focusMaps = [];
+                for (let i = 0; i < imageDataArray.length; i++) {
+                    const focusMap = calculateFocusMap(imageDataArray[i], algorithm, kernelSize);
+                    focusMaps.push(focusMap);
+                    updateProgress('Calculating focus maps', 30 + (i / imageDataArray.length) * 30);
+                    await sleep(0); // Allow UI updates
+                }
+
+                // Apply double-pass Gaussian blur to focus maps for smoother blending
+                updateProgress('Smoothing focus maps', 60);
+                // First pass with full radius
+                let smoothedMaps = focusMaps.map(map => gaussianBlur(map, width, height, blendRadius));
+                // Second pass with half radius for extra smoothness (reduces banding)
+                updateProgress('Refining blend', 70);
+                smoothedMaps = smoothedMaps.map(map => gaussianBlur(map, width, height, Math.max(5, Math.floor(blendRadius / 2))));
+
+                // Blend images based on focus maps
+                updateProgress('Blending images', 80);
+                let resultData = blendImages(imageDataArray, smoothedMaps, width, height);
+
+                // Apply dark-field enhancements if any are enabled
+                const vignetteStrength = parseInt(document.getElementById('vignette-strength').value);
+                const bgReduction = parseInt(document.getElementById('bg-reduction').value);
+                const contrastBoost = parseInt(document.getElementById('contrast-boost').value);
+                
+                if (vignetteStrength > 0 || bgReduction > 0 || contrastBoost > 0) {
+                    updateProgress('Applying enhancements', 90);
+                    resultData = applyDarkFieldEnhancements(resultData, width, height, vignetteStrength, bgReduction, contrastBoost);
+                }
+
+                // Put result on canvas
+                updateProgress('Finalizing', 95);
+                resultCtx.putImageData(resultData, 0, 0);
+
+                // Display result
+                resultImageData = resultCanvas.toDataURL('image/png');
+                resultImage.src = resultImageData;
+                resultImage.style.display = 'block';
+                resultPlaceholder.style.display = 'none';
+
+                // Update stats
+                const endTime = performance.now();
+                document.getElementById('stat-images').textContent = images.length;
+                document.getElementById('stat-resolution').textContent = `${width}×${height}`;
+                document.getElementById('stat-time').textContent = ((endTime - startTime) / 1000).toFixed(1) + 's';
+                document.getElementById('stats-grid').style.display = 'grid';
+
+                // Show action buttons
+                document.getElementById('download-btn').style.display = 'block';
+                document.getElementById('compare-btn').style.display = 'block';
+                
+                // Show share button if Web Share API is available (mobile)
+                const testBlob = new Blob(['test'], { type: 'image/png' });
+                const testFile = new File([testBlob], 'test.png', { type: 'image/png' });
+                if (navigator.canShare && navigator.canShare({ files: [testFile] })) {
+                    document.getElementById('share-btn').style.display = 'block';
+                }
+
+                // Setup comparison
+                document.getElementById('comparison-before').src = images[0].dataUrl;
+                document.getElementById('comparison-after').src = resultImageData;
+
+                updateProgress('Complete', 100);
+                showToast('Focus stacking complete!', 'success');
+
+            } catch (error) {
+                console.error('Stacking error:', error);
+                showToast('Error during processing: ' + error.message, 'error');
+            }
+
+            // Reset UI
+            setTimeout(() => {
+                stackBtn.disabled = false;
+                document.getElementById('stack-btn-text').textContent = '🔬 Stack Images';
+                document.getElementById('stack-spinner').style.display = 'none';
+                hideProgress();
+            }, 500);
+        }
+
+        function calculateFocusMap(imageData, algorithm, kernelSize) {
+            const width = imageData.width;
+            const height = imageData.height;
+            const data = imageData.data;
+            const focusMap = new Float32Array(width * height);
+
+            // Convert to grayscale
+            const gray = new Float32Array(width * height);
+            for (let i = 0; i < width * height; i++) {
+                const idx = i * 4;
+                gray[i] = 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
+            }
+
+            const half = Math.floor(kernelSize / 2);
+
+            if (algorithm === 'laplacian') {
+                // Laplacian-based focus measure
+                for (let y = half; y < height - half; y++) {
+                    for (let x = half; x < width - half; x++) {
+                        const idx = y * width + x;
+                        const laplacian = 
+                            -4 * gray[idx] +
+                            gray[idx - 1] +
+                            gray[idx + 1] +
+                            gray[idx - width] +
+                            gray[idx + width];
+                        focusMap[idx] = Math.abs(laplacian);
+                    }
+                }
+            } else if (algorithm === 'sobel') {
+                // Sobel gradient magnitude
+                for (let y = 1; y < height - 1; y++) {
+                    for (let x = 1; x < width - 1; x++) {
+                        const idx = y * width + x;
+                        const gx = 
+                            -gray[idx - width - 1] + gray[idx - width + 1] +
+                            -2 * gray[idx - 1] + 2 * gray[idx + 1] +
+                            -gray[idx + width - 1] + gray[idx + width + 1];
+                        const gy = 
+                            -gray[idx - width - 1] - 2 * gray[idx - width] - gray[idx - width + 1] +
+                            gray[idx + width - 1] + 2 * gray[idx + width] + gray[idx + width + 1];
+                        focusMap[idx] = Math.sqrt(gx * gx + gy * gy);
+                    }
+                }
+            } else if (algorithm === 'variance') {
+                // Local variance
+                for (let y = half; y < height - half; y++) {
+                    for (let x = half; x < width - half; x++) {
+                        let sum = 0;
+                        let sumSq = 0;
+                        let count = 0;
+                        
+                        for (let ky = -half; ky <= half; ky++) {
+                            for (let kx = -half; kx <= half; kx++) {
+                                const val = gray[(y + ky) * width + (x + kx)];
+                                sum += val;
+                                sumSq += val * val;
+                                count++;
+                            }
+                        }
+                        
+                        const mean = sum / count;
+                        const variance = (sumSq / count) - (mean * mean);
+                        focusMap[y * width + x] = variance;
+                    }
+                }
+            }
+
+            return focusMap;
+        }
+
+        function gaussianBlur(map, width, height, radius) {
+            const sigma = radius / 3;
+            const kernel = [];
+            const kernelSize = radius * 2 + 1;
+            let sum = 0;
+
+            // Create 1D Gaussian kernel
+            for (let i = 0; i < kernelSize; i++) {
+                const x = i - radius;
+                const g = Math.exp(-(x * x) / (2 * sigma * sigma));
+                kernel.push(g);
+                sum += g;
+            }
+
+            // Normalize
+            for (let i = 0; i < kernelSize; i++) {
+                kernel[i] /= sum;
+            }
+
+            // Horizontal pass
+            const temp = new Float32Array(width * height);
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    let val = 0;
+                    for (let k = 0; k < kernelSize; k++) {
+                        const kx = Math.min(Math.max(x + k - radius, 0), width - 1);
+                        val += map[y * width + kx] * kernel[k];
+                    }
+                    temp[y * width + x] = val;
+                }
+            }
+
+            // Vertical pass
+            const result = new Float32Array(width * height);
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    let val = 0;
+                    for (let k = 0; k < kernelSize; k++) {
+                        const ky = Math.min(Math.max(y + k - radius, 0), height - 1);
+                        val += temp[ky * width + x] * kernel[k];
+                    }
+                    result[y * width + x] = val;
+                }
+            }
+
+            return result;
+        }
+
+        function blendImages(imageDataArray, focusMaps, width, height) {
+            const result = new ImageData(width, height);
+            const resultData = result.data;
+
+            // Normalize focus maps to 0-1 range for better blending
+            const normalizedMaps = focusMaps.map(map => {
+                let max = 0;
+                for (let i = 0; i < map.length; i++) {
+                    if (map[i] > max) max = map[i];
+                }
+                const normalized = new Float32Array(map.length);
+                const scale = max > 0 ? 1 / max : 1;
+                for (let i = 0; i < map.length; i++) {
+                    normalized[i] = map[i] * scale;
+                }
+                return normalized;
+            });
+
+            for (let i = 0; i < width * height; i++) {
+                // Calculate weighted blend based on focus values
+                let totalWeight = 0;
+                let r = 0, g = 0, b = 0;
+                
+                for (let j = 0; j < imageDataArray.length; j++) {
+                    const focus = normalizedMaps[j][i];
+                    // Use softmax-like weighting for smoother transitions
+                    // Higher exponent = sharper selection, lower = smoother blend
+                    const weight = Math.pow(focus + 0.01, 1.5); // Gentler than squared
+                    totalWeight += weight;
+                    
+                    const srcIdx = i * 4;
+                    r += imageDataArray[j].data[srcIdx] * weight;
+                    g += imageDataArray[j].data[srcIdx + 1] * weight;
+                    b += imageDataArray[j].data[srcIdx + 2] * weight;
+                }
+
+                const dstIdx = i * 4;
+                resultData[dstIdx] = Math.round(r / totalWeight);
+                resultData[dstIdx + 1] = Math.round(g / totalWeight);
+                resultData[dstIdx + 2] = Math.round(b / totalWeight);
+                resultData[dstIdx + 3] = 255;
+            }
+
+            return result;
+        }
+
+        // Apply dark-field enhancements to reduce reflected light artifacts
+        function applyDarkFieldEnhancements(imageData, width, height, vignetteStrength, bgReduction, contrastBoost) {
+            const data = imageData.data;
+            const centerX = width / 2;
+            const centerY = height / 2;
+            const maxDistance = Math.sqrt(centerX * centerX + centerY * centerY);
+            
+            // Calculate background level if reduction is requested
+            let bgLevel = 0;
+            if (bgReduction > 0) {
+                // Sample corners and edges to estimate background
+                let samples = 0;
+                let total = 0;
+                const sampleSize = Math.floor(Math.min(width, height) * 0.05);
+                
+                // Sample corners
+                for (let y = 0; y < sampleSize; y++) {
+                    for (let x = 0; x < sampleSize; x++) {
+                        const idx = (y * width + x) * 4;
+                        total += (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
+                        samples++;
+                    }
+                }
+                bgLevel = (total / samples) * (bgReduction / 100);
+            }
+
+            // Process each pixel
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const idx = (y * width + x) * 4;
+                    let r = data[idx];
+                    let g = data[idx + 1];
+                    let b = data[idx + 2];
+
+                    // Apply background reduction
+                    if (bgReduction > 0) {
+                        r = Math.max(0, r - bgLevel);
+                        g = Math.max(0, g - bgLevel);
+                        b = Math.max(0, b - bgLevel);
+                    }
+
+                    // Apply vignette (darken edges)
+                    if (vignetteStrength > 0) {
+                        const dx = x - centerX;
+                        const dy = y - centerY;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        const normalizedDist = distance / maxDistance;
+                        // Use smooth curve for natural vignette
+                        const vignetteFactor = 1 - (Math.pow(normalizedDist, 2) * (vignetteStrength / 100));
+                        r *= vignetteFactor;
+                        g *= vignetteFactor;
+                        b *= vignetteFactor;
+                    }
+
+                    // Apply contrast boost
+                    if (contrastBoost > 0) {
+                        const factor = 1 + (contrastBoost / 50); // 0-100 maps to 1-3x
+                        r = Math.min(255, Math.max(0, ((r - 128) * factor) + 128));
+                        g = Math.min(255, Math.max(0, ((g - 128) * factor) + 128));
+                        b = Math.min(255, Math.max(0, ((b - 128) * factor) + 128));
+                    }
+
+                    data[idx] = Math.round(r);
+                    data[idx + 1] = Math.round(g);
+                    data[idx + 2] = Math.round(b);
+                }
+            }
+
+            return imageData;
+        }
+
+        // Comparison slider
+        function toggleComparison() {
+            isComparing = !isComparing;
+            const comparisonContainer = document.getElementById('comparison-container');
+            
+            if (isComparing) {
+                resultImage.style.display = 'none';
+                comparisonContainer.classList.add('visible');
+                setupComparisonSlider();
+            } else {
+                resultImage.style.display = 'block';
+                comparisonContainer.classList.remove('visible');
+            }
+        }
+
+        function setupComparisonSlider() {
+            const slider = document.getElementById('comparison-slider');
+            const overlay = document.getElementById('comparison-overlay');
+            const container = document.getElementById('comparison-container');
+            
+            let isDragging = false;
+
+            function updateSliderPosition(clientX) {
+                const rect = container.getBoundingClientRect();
+                const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
+                const percent = (x / rect.width) * 100;
+                
+                slider.style.left = percent + '%';
+                overlay.style.width = percent + '%';
+            }
+
+            // Mouse events
+            slider.addEventListener('mousedown', () => isDragging = true);
+            document.addEventListener('mouseup', () => isDragging = false);
+            document.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                updateSliderPosition(e.clientX);
+            });
+
+            // Touch events for mobile
+            slider.addEventListener('touchstart', (e) => {
+                isDragging = true;
+                e.preventDefault();
+            }, { passive: false });
+            
+            document.addEventListener('touchend', () => isDragging = false);
+            document.addEventListener('touchcancel', () => isDragging = false);
+            
+            document.addEventListener('touchmove', (e) => {
+                if (!isDragging) return;
+                const touch = e.touches[0];
+                updateSliderPosition(touch.clientX);
+                e.preventDefault();
+            }, { passive: false });
+
+            // Also allow tapping anywhere on the container to move slider
+            container.addEventListener('click', (e) => {
+                if (e.target === slider) return;
+                updateSliderPosition(e.clientX);
+            });
+
+            container.addEventListener('touchstart', (e) => {
+                if (e.target === slider) return;
+                const touch = e.touches[0];
+                updateSliderPosition(touch.clientX);
+            }, { passive: true });
+        }
+
+        // Download
+        // Generate filename with settings
+        function getResultFilename() {
+            const algorithm = document.getElementById('algorithm').value;
+            const kernelSize = document.getElementById('kernel-size').value;
+            const blendRadius = document.getElementById('blend-radius').value;
+            const useSourceTimestamp = document.getElementById('use-source-timestamp').checked;
+            
+            const algoAbbrev = {
+                'laplacian': 'Lap',
+                'sobel': 'Sob',
+                'variance': 'Var'
+            }[algorithm] || algorithm;
+            
+            let timestamp;
+            if (useSourceTimestamp && latestSourceTimestamp) {
+                // Add 5 seconds to latest source timestamp
+                const resultDate = new Date(latestSourceTimestamp + 5000);
+                // Format: YYYY-MM-DD_HHmmss
+                timestamp = resultDate.toISOString().slice(0, 10) + '_' + 
+                           resultDate.toTimeString().slice(0, 8).replace(/:/g, '');
+            } else {
+                timestamp = new Date().toISOString().slice(0, 10);
+            }
+            
+            return `focus-stacked_${timestamp}_${algoAbbrev}_K${kernelSize}_BR${blendRadius}.png`;
+        }
+        
+        // Update timestamp preview when images are loaded
+        function updateTimestampPreview() {
+            const preview = document.getElementById('timestamp-preview');
+            if (latestSourceTimestamp) {
+                const sourceDate = new Date(latestSourceTimestamp);
+                const resultDate = new Date(latestSourceTimestamp + 5000);
+                preview.textContent = `Source: ${sourceDate.toLocaleString()} → Result: ${resultDate.toLocaleString()}`;
+            } else {
+                preview.textContent = 'No source timestamp available';
+            }
+        }
+
+        // Convert data URL to Blob
+        function dataURLtoBlob(dataURL) {
+            const arr = dataURL.split(',');
+            const mime = arr[0].match(/:(.*?);/)[1];
+            const bstr = atob(arr[1]);
+            let n = bstr.length;
+            const u8arr = new Uint8Array(n);
+            while (n--) {
+                u8arr[n] = bstr.charCodeAt(n);
+            }
+            return new Blob([u8arr], { type: mime });
+        }
+
+        // Download result (standard download)
+        function downloadResult() {
+            if (!resultImageData) return;
+            
+            const filename = getResultFilename();
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = resultImageData;
+            link.click();
+            
+            showToast('Image downloaded!', 'success');
+        }
+
+        // Share/Save to Photos (mobile-friendly)
+        async function shareResult() {
+            if (!resultImageData) return;
+
+            const filename = getResultFilename();
+            const blob = dataURLtoBlob(resultImageData);
+            const file = new File([blob], filename, { type: 'image/png' });
+
+            // Check if Web Share API with files is supported
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                try {
+                    await navigator.share({
+                        files: [file],
+                        title: 'Focus Stacked Image',
+                        text: 'Created with Focus Stacker'
+                    });
+                    showToast('Image shared/saved!', 'success');
+                } catch (err) {
+                    if (err.name !== 'AbortError') {
+                        // User didn't cancel, there was an actual error
+                        showToast('Share failed. Try download instead.', 'error');
+                        downloadResult(); // Fallback to download
+                    }
+                }
+            } else {
+                // Fallback for browsers without share API
+                downloadResult();
+            }
+        }
+
+        // UI Helpers
+        function updateProgress(label, percent) {
+            document.getElementById('progress-label').textContent = label;
+            document.getElementById('progress-percent').textContent = Math.round(percent) + '%';
+            document.getElementById('progress-fill').style.width = percent + '%';
+        }
+
+        function hideProgress() {
+            setTimeout(() => {
+                progressContainer.classList.remove('visible');
+            }, 500);
+        }
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `
+                <span class="icon">${type === 'success' ? '✓' : '✕'}</span>
+                <span>${message}</span>
+            `;
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(100%)';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+    </script>
+</body>
+</html>
